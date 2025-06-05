@@ -1,0 +1,9 @@
+# Git repositories to clone and parse YAMLs from
+git_repos:
+  - https://github.com/christippett/terraform-cloudinit-container-server.git
+
+# Enable auto-detection from standard Linux config folders
+auto_detect: true
+
+# Enable verbose output
+verbose: true

@@ -68,7 +68,7 @@ verbose: true
 ### Run and export a Graphviz .dot file
 ```bash
 
-./Viac config.yaml --export output.dot
+./Viac config.yaml --e output.dot
 
 ```
 ### Convert .dot to PNG using Graphviz (optional)
