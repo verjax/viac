@@ -1,0 +1,20 @@
+# List of individual YAML files (e.g., docker-compose.yml)
+file_paths:
+  - docker-compose.yml
+  - cloud-init.yml
+
+# Git repositories to clone and parse YAMLs from
+git_repos:
+  - https://github.com/example/infrastructure.git
+  - https://github.com/example/services-config.git
+
+# Local directories to recursively scan for .yml/.yaml files
+directories:
+  - ./infra-configs
+  - /srv/app-configs
+
+# Enable auto-detection from standard Linux config folders
+auto_detect: true
+
+# Enable verbose output
+verbose: true
