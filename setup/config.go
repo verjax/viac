@@ -8,11 +8,9 @@ import (
 )
 
 type Config struct {
-	FilePaths   []string `yaml:"file_paths"`
-	GitRepos    []string `yaml:"git_repos"`
-	Directories []string `yaml:"directories"`
-	AutoDetect  bool     `yaml:"auto_detect"`
-	Verbose     bool     `yaml:"verbose"`
+	GitRepo   string   `yaml:"git_repo,omitempty"`
+	FilePaths []string `yaml:"file_paths,omitempty"`
+	Verbose   bool     `yaml:"verbose"`
 }
 
 func LoadConfig(path string) (Config, error) {
@@ -27,5 +25,10 @@ func LoadConfig(path string) (Config, error) {
 
 	var cfg Config
 	err = yaml.Unmarshal(data, &cfg)
+
+	if cfg.GitRepo == "" && len(cfg.FilePaths) == 0 {
+		return Config{}, errors.New("either git_repo or file_paths is required in configuration")
+	}
+
 	return cfg, err
 }
