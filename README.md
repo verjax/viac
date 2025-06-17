@@ -1,80 +1,83 @@
-# VIAC
-### Author: 
+# VIAC - Visual Infrastructure as Code
+
+### Author:
 **Nyandoro Christopher**
 
+**VIAC** is a specialized CLI tool for visualizing Infrastructure-as-Code configurations, focusing specifically on **Docker Compose** and **cloud-init** files found in Git repositories. It discovers, parses, and visualizes the relationships between infrastructure components to provide a comprehensive view of your infrastructure setup.
 
-**Viac** is a lightweight and powerful CLI tool to visualize infrastructure described using Infrastructure-as-Code (IaC) YAML configurations such as Docker Compose and cloud-init files. It supports input from files, Git repositories, local directories, or automatic detection from common server paths.
+## 🎯 Purpose
 
+VIAC helps you understand your infrastructure by:
+- 🔍 **Discovering** Docker Compose and cloud-init files from Git repositories
+- 🧩 **Parsing** infrastructure components and their relationships
+- 📊 **Visualizing** dependencies, connections, and provisioning relationships
+- 🖼️ **Exporting** professional Graphviz diagrams
 
-Viac can output:
-- 📦 **Terminal ASCII diagrams** of services and dependencies
-- 📈 **Graphviz `.dot` files** for graphical visualization (with optional PNG/PDF rendering)
----
-
-## 🚀 Features
-
-- ✅ **Multi-source support** via a single config file:
-    - Parse local `file_paths`
-    - Clone and process `git_repos`
-    - Scan `directories` recursively
-    - Auto-detect YAMLs from common paths
-- ✅ **YAML and JSON config formats**
-- ✅ **Graphviz export** with `--export`
-- ✅ **Verbose logging** with `verbose: true`
-- ✅ **Clean CLI** powered by Cobra
-- ✅ **Pure Go** implementation, no external binaries needed
-
----
-
-## 🛠 Installation
+## 🔧 Installation
 
 ### Prerequisites
-- Go 1.18 or higher installed
-- Git installed (for `go-git` cloning)
+- Go 1.23+ installed
+- Git installed (for repository cloning)
+- Graphviz installed (optional, for rendering .dot files to images)
 
-### Clone & Build
+### Build from Source
 
 ```bash
-git clone https://github.com/yourusername/viac.git
+git clone https://git.mif.vu.lt/micac/2025/viac
 cd viac
-go build -o Viac
+go mod tidy
+go build -o viac
 ```
+
+## 📝 Configuration
+
+Create a `config.yaml` file to specify the Git repository to analyze:
 
 ```yaml
 # config.yaml
 
-file_paths:
-  - docker-compose.yml
-  - cloud-init.yml
+# Git repository to clone and analyze for Docker Compose and cloud-init files
+git_repo: https://github.com/example/infrastructure-repo.git
 
-git_repos:
-  - https://github.com/example/infrastructure.git
-  - https://github.com/example/services-config.git
-
-directories:
-  - ./viac-configs
-  - /srv/app-configs
-
-auto_detect: true
+# Enable verbose output for detailed logging
 verbose: true
 ```
 
-### Run normally (ASCII output in terminal)
+## 🖥️ Usage
+
+### Terminal Visualization
 ```bash
+# Display infrastructure in terminal
+./viac config.yaml
 
-./Viac config.yaml
+# With verbose output
+./viac config.yaml --verbose
 
+# Or in development terminal
+go run main.go config.yaml --verbose
 ```
-### Run and export a Graphviz .dot file
+
+### Export Graphviz Diagram
 ```bash
+# Export to .dot file
+./viac config.yaml --export infrastructure.dot
 
-./Viac config.yaml --e output.dot
+# Convert to PNG (requires Graphviz)
+`dot -Tpng infrastructure.dot -o output.png`
 
+# Convert to PDF
+dot -Tpdf infrastructure.dot -o output.pdf
+
+# Convert to SVG
+dot -Tsvg infrastructure.dot -o output.svg
 ```
-### Convert .dot to PNG using Graphviz (optional)
-```bash
 
-dot -Tpng output.dot -o output.png
+## 📄 License
 
-```
-      
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🙏 Acknowledgments
+
+- Built with Go and the excellent Cobra CLI framework
+- Visualization powered by Graphviz
+- Git operations using go-git library

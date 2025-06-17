@@ -1,0 +1,318 @@
+version: '3.8'
+
+services:
+  # Frontend Load Balancer
+  nginx-proxy:
+    image: nginx:1.23-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./nginx/ssl:/etc/ssl/certs
+    depends_on:
+      - web-app
+      - api-gateway
+    networks:
+      - frontend
+      - backend
+    environment:
+      - NGINX_HOST=localhost
+      - NGINX_PORT=80
+
+  # API Gateway
+  api-gateway:
+    image: traefik:v2.9
+    ports:
+      - "8080:8080"
+      - "8443:8443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik:/etc/traefik
+    depends_on:
+      - user-service
+      - product-service
+      - order-service
+    networks:
+      - frontend
+      - backend
+    environment:
+      - TRAEFIK_API_DASHBOARD=true
+      - TRAEFIK_API_INSECURE=true
+
+  # Frontend Application
+  web-app:
+    image: node:18-alpine
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - node_modules:/app/node_modules
+    working_dir: /app
+    command: npm run dev
+    depends_on:
+      - api-gateway
+    networks:
+      - frontend
+    environment:
+      - NODE_ENV=development
+      - API_URL=http://api-gateway:8080
+      - REDIS_URL=redis://redis-cache:6379
+
+  # Microservices
+  user-service:
+    image: python:3.11-slim
+    ports:
+      - "5001:5000"
+    volumes:
+      - ./services/user:/app
+    working_dir: /app
+    command: python app.py
+    depends_on:
+      - postgres-users
+      - redis-cache
+    networks:
+      - backend
+      - database
+    environment:
+      - DATABASE_URL=postgresql://user:password@postgres-users:5432/users
+      - REDIS_URL=redis://redis-cache:6379
+      - JWT_SECRET=user-service-secret
+
+  product-service:
+    image: golang:1.20-alpine
+    ports:
+      - "5002:8000"
+    volumes:
+      - ./services/product:/app
+    working_dir: /app
+    command: go run main.go
+    depends_on:
+      - mongodb-products
+      - elasticsearch
+    networks:
+      - backend
+      - database
+    environment:
+      - MONGO_URL=mongodb://mongodb-products:27017/products
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+
+  order-service:
+    image: openjdk:17-jdk-slim
+    ports:
+      - "5003:8080"
+    volumes:
+      - ./services/order:/app
+    working_dir: /app
+    command: java -jar app.jar
+    depends_on:
+      - postgres-orders
+      - rabbitmq
+      - user-service
+      - product-service
+    networks:
+      - backend
+      - database
+      - messaging
+    environment:
+      - DATABASE_URL=jdbc:postgresql://postgres-orders:5432/orders
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - USER_SERVICE_URL=http://user-service:5000
+      - PRODUCT_SERVICE_URL=http://product-service:8000
+
+  notification-service:
+    image: node:18-alpine
+    volumes:
+      - ./services/notification:/app
+    working_dir: /app
+    command: npm start
+    depends_on:
+      - rabbitmq
+      - redis-cache
+    networks:
+      - messaging
+      - backend
+    environment:
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - REDIS_URL=redis://redis-cache:6379
+      - SMTP_HOST=smtp.gmail.com
+      - SMTP_PORT=587
+
+  # Databases
+  postgres-users:
+    image: postgres:15-alpine
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_users_data:/var/lib/postgresql/data
+      - ./db/init/users.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - database
+    environment:
+      - POSTGRES_DB=users
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+
+  postgres-orders:
+    image: postgres:15-alpine
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_orders_data:/var/lib/postgresql/data
+      - ./db/init/orders.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - database
+    environment:
+      - POSTGRES_DB=orders
+      - POSTGRES_USER=order
+      - POSTGRES_PASSWORD=password
+
+  mongodb-products:
+    image: mongo:6.0
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./db/init/products.js:/docker-entrypoint-initdb.d/init.js
+    networks:
+      - database
+    environment:
+      - MONGO_INITDB_DATABASE=products
+
+  # Caching
+  redis-cache:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - backend
+      - database
+    command: redis-server --appendonly yes
+
+  # Message Queue
+  rabbitmq:
+    image: rabbitmq:3.11-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - messaging
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+
+  # Search Engine
+  elasticsearch:
+    image: elasticsearch:8.8.0
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - backend
+      - database
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+
+  # Monitoring
+  prometheus:
+    image: prom/prometheus:v2.40.0
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    networks:
+      - monitoring
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+
+  grafana:
+    image: grafana/grafana:9.3.0
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
+    networks:
+      - monitoring
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+
+  # Log Management
+  elasticsearch-logs:
+    image: elasticsearch:8.8.0
+    ports:
+      - "9201:9200"
+    volumes:
+      - elasticsearch_logs_data:/usr/share/elasticsearch/data
+    networks:
+      - logging
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+
+  logstash:
+    image: logstash:8.8.0
+    ports:
+      - "5044:5044"
+    volumes:
+      - ./logging/logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+    depends_on:
+      - elasticsearch-logs
+    networks:
+      - logging
+    environment:
+      - "LS_JAVA_OPTS=-Xmx256m -Xms256m"
+
+  kibana:
+    image: kibana:8.8.0
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch-logs
+    networks:
+      - logging
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch-logs:9200
+
+networks:
+  frontend:
+    driver: bridge
+  backend:
+    driver: bridge
+  database:
+    driver: bridge
+  messaging:
+    driver: bridge
+  monitoring:
+    driver: bridge
+  logging:
+    driver: bridge
+
+volumes:
+  postgres_users_data:
+  postgres_orders_data:
+  mongodb_data:
+  redis_data:
+  rabbitmq_data:
+  elasticsearch_data:
+  elasticsearch_logs_data:
+  prometheus_data:
+  grafana_data:
+  node_modules:
