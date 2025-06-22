@@ -31,13 +31,17 @@ go build -o viac
 
 ## 📝 Configuration
 
-Create a `config.yaml` file to specify the Git repository to analyze:
+Create a `config.yaml` file to specify the Git or File path to analyze.:
 
 ```yaml
 # config.yaml
 
 # Git repository to clone and analyze for Docker Compose and cloud-init files
 git_repo: https://github.com/example/infrastructure-repo.git
+
+# Enable verbose output for detailed logging
+file_paths:
+  - docker-compose.yaml #AI generated example file for testing.
 
 # Enable verbose output for detailed logging
 verbose: true
