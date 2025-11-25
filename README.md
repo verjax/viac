@@ -23,7 +23,7 @@ VIAC helps you understand your infrastructure by:
 ### Build from Source
 
 ```bash
-git clone https://git.mif.vu.lt/micac/2025/viac
+git clone https://github.com/verjax/viac.git
 cd viac
 go mod tidy
 go build -o viac
