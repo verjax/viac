@@ -37,7 +37,7 @@ Create a `config.yaml` file to specify the Git or File path to analyze.:
 # config.yaml
 
 # Git repository to clone and analyze for Docker Compose and cloud-init files
-git_repo: https://github.com/example/infrastructure-repo.git
+git_repo: https://github.com/verjax/viac.git
 
 # Enable verbose output for detailed logging
 file_paths:
